@@ -9,12 +9,13 @@ describe("showAllBooksStatus", () => {
         { book: { title: "Mock Book Title" }, status: "Available" },
         { book: { title: "Mock Book Title 2" }, status: "Available" },
     ];
+
     beforeEach(() => {
         res = {
             status: jest.fn().mockReturnThis(),
             send: jest.fn(),
         };
-    })
+    });
 
     afterEach(() => {
         jest.clearAllMocks();
@@ -56,4 +57,80 @@ describe("showAllBooksStatus", () => {
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.send).toHaveBeenCalledWith([]);
     });
+
+    it('should return 500 if there is an error fetching book instances', async () => {
+        // Arrange
+        BookInstance.find = jest.fn().mockImplementation(() => {
+            throw new Error('Database error');
+        });
+
+        // Act
+        await showAllBooksStatus(res as Response);
+
+        // Assert
+        expect(res.status).toHaveBeenCalledWith(500);
+        expect(res.send).toHaveBeenCalledWith('Status not found');
+    });
+
+    it('should return 500 if bookInstance has null book', async () => {
+        // Arrange
+        const mockBookInstances = [
+            { book: null, status: 'Available' },
+        ];
+
+        const mockFind = jest.fn().mockReturnValue({
+            populate: jest.fn().mockResolvedValue(mockBookInstances)
+        });
+        BookInstance.find = mockFind;
+
+        // Act
+        await showAllBooksStatus(res as Response);
+
+        // Assert
+        expect(res.status).toHaveBeenCalledWith(500);
+        expect(res.send).toHaveBeenCalledWith('Status not found');
+    });
+
+    it('should handle bookInstance with missing book title', async () => {
+        // Arrange
+        const mockBookInstances = [
+            { book: {}, status: 'Available' },
+        ];
+
+        const mockFind = jest.fn().mockReturnValue({
+            populate: jest.fn().mockResolvedValue(mockBookInstances)
+        });
+        BookInstance.find = mockFind;
+
+        // Act
+        await showAllBooksStatus(res as Response);
+
+        // Assert
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.send).toHaveBeenCalledWith([
+            'undefined : Available',
+        ]);
+    });
+
+    it('should handle bookInstance with missing status', async () => {
+        // Arrange
+        const mockBookInstances = [
+            { book: { title: 'Mock Book Title' }, status: undefined },
+        ];
+
+        const mockFind = jest.fn().mockReturnValue({
+            populate: jest.fn().mockResolvedValue(mockBookInstances)
+        });
+        BookInstance.find = mockFind;
+
+        // Act
+        await showAllBooksStatus(res as Response);
+
+        // Assert
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.send).toHaveBeenCalledWith([
+            'Mock Book Title : undefined',
+        ]);
+    });
 });
+
